@@ -1,4 +1,4 @@
-# copy-success — CVE-2026-31431 Compensating Control
+# copy-success: CVE-2026-31431 Compensating Control
 
 A compensating control script for **CVE-2026-31431**, a local privilege escalation vulnerability in the Linux kernel (`splice()` + AF_AEAD sockets, kernel ≥ 6.11). Intended for environments where applying the official kernel patch is not yet possible.
 
@@ -9,7 +9,7 @@ A compensating control script for **CVE-2026-31431**, a local privilege escalati
 | Mitigation | Effect |
 |---|---|
 | **AF_AEAD module blacklist** | Prevents the vulnerable socket family from loading (effective when built as a module) |
-| **`chattr +i` on SUID binaries** | Marks `/usr/bin/su` and other SUID binaries immutable at the VFS layer — blocks the splice-based overwrite regardless of kernel version |
+| **`chattr +i` on SUID binaries** | Marks `/usr/bin/su` and other SUID binaries immutable at the VFS layer, blocking the splice-based overwrite regardless of kernel version |
 | **SUID baseline + integrity monitor** | SHA-256 baseline of all SUID/SGID binaries; cron-driven monitor alerts on tampering or missing files |
 | **`auditd` detection rules** | Logs `socket(AF_AEAD)`, `splice()` on SUID targets, SUID binary writes, and post-exploitation `execve` |
 | **Kernel hardening sysctls** | Disables unprivileged user namespaces, restricts BPF, tightens `dmesg`/kptr access |
@@ -23,9 +23,9 @@ A compensating control script for **CVE-2026-31431**, a local privilege escalati
 
 2. **`chattr +i` blocks package manager updates.** After deployment, `apt`/`dnf`/`zypper` cannot update `su` or other immutable SUID binaries. Run `chattr -i /usr/bin/su` (and other flagged binaries) before applying OS updates, then re-run this script afterward.
 
-3. **Initramfs rebuild is slow.** On systems with multiple installed kernels, `update-initramfs -u -k all` or `dracut --regenerate-all` can take 2–10 minutes. The script is not hung — it will complete.
+3. **Initramfs rebuild is slow.** On systems with multiple installed kernels, `update-initramfs -u -k all` or `dracut --regenerate-all` can take 2–10 minutes. The script is not hung. It will complete.
 
-4. **Container hosts (Docker/Podman rootless):** The script detects running container services and conditionally skips `user.max_user_namespaces = 0`, but still applies `kernel.unprivileged_userns_clone = 0` unconditionally. Verify compatibility before deploying on container hosts — you may need to manually restore that sysctl afterward.
+4. **Container hosts (Docker/Podman rootless):** The script detects running container services and conditionally skips `user.max_user_namespaces = 0`, but still applies `kernel.unprivileged_userns_clone = 0` unconditionally. Verify compatibility before deploying on container hosts. You may need to manually restore that sysctl afterward.
 
 5. **High-throughput servers:** The `splice()` audit rule can generate significant log volume on systems with heavy rsync, backup, or database I/O. Monitor `/var/log/audit/audit.log` growth after deployment.
 
@@ -40,7 +40,7 @@ A compensating control script for **CVE-2026-31431**, a local privilege escalati
 sudo bash copy-success.sh
 ```
 
-The script is idempotent — safe to re-run after OS updates or manual rollback.
+The script is idempotent, safe to re-run after OS updates or manual rollback.
 
 **To reverse all mitigations:**
 ```bash
@@ -64,7 +64,7 @@ update-initramfs -u -k all   # or: dracut --regenerate-all --force
 
 ## Disclaimer
 
-This script is a compensating control, not a permanent fix. It reduces exploitability but does not patch the underlying kernel vulnerability — apply the official patch as soon as it is available for your distribution.
+This script is a compensating control, not a permanent fix. It reduces exploitability but does not patch the underlying kernel vulnerability. Apply the official patch as soon as it is available for your distribution.
 
 This script is provided as-is. By using it, you acknowledge that you have read and understood all the considerations outlined above. The author takes no responsibility for any issues, damages, or problems — direct or indirect — that arise from using, deploying, or modifying this script. Use it at your own risk.
 
