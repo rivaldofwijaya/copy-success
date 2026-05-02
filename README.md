@@ -1,12 +1,10 @@
 # copy-success — CVE-2026-31431 Compensating Control
 
-A defensive mitigation script for **CVE-2026-31431**, a local privilege escalation (LPE) vulnerability in the Linux kernel (`splice()` + AF_AEAD sockets, kernel ≥ 6.11). Intended as a **virtual patch / compensating control** for environments where official kernel updates cannot be applied immediately.
+A compensating control script for **CVE-2026-31431**, a local privilege escalation vulnerability in the Linux kernel (`splice()` + AF_AEAD sockets, kernel ≥ 6.11). Intended for environments where applying the official kernel patch is not yet possible.
 
 ---
 
 ## What It Does
-
-Applies six layered mitigations targeting every step of the CVE-2026-31431 exploit chain:
 
 | Mitigation | Effect |
 |---|---|
@@ -19,17 +17,7 @@ Applies six layered mitigations targeting every step of the CVE-2026-31431 explo
 
 ---
 
-## Intended Purpose
-
-- **Target environment**: Linux endpoints running kernel ≥ 6.11 that cannot yet apply an official kernel patch for CVE-2026-31431
-- **Threat model**: Local unprivileged attacker attempting privilege escalation via the splice/AF_AEAD exploit chain
-- **Deployment scope**: Servers, workstations, container hosts — requires root
-
----
-
 ## Key Considerations
-
-**Before deploying:**
 
 1. **Test on a non-production system first.** The script makes persistent changes including immutable file flags, sysctl settings, initramfs rebuilds, and audit rules.
 
@@ -37,7 +25,7 @@ Applies six layered mitigations targeting every step of the CVE-2026-31431 explo
 
 3. **Initramfs rebuild is slow.** On systems with multiple installed kernels, `update-initramfs -u -k all` or `dracut --regenerate-all` can take 2–10 minutes. The script is not hung — it will complete.
 
-4. **Container hosts (Docker/Podman rootless):** The script detects running container services and conditionally skips `user.max_user_namespaces = 0`, but **still applies `kernel.unprivileged_userns_clone = 0`** unconditionally. Rootless containers depend on this sysctl — verify compatibility before deploying on container hosts. You may need to manually set `kernel.unprivileged_userns_clone = 1` after running.
+4. **Container hosts (Docker/Podman rootless):** The script detects running container services and conditionally skips `user.max_user_namespaces = 0`, but still applies `kernel.unprivileged_userns_clone = 0` unconditionally. Verify compatibility before deploying on container hosts — you may need to manually restore that sysctl afterward.
 
 5. **High-throughput servers:** The `splice()` audit rule can generate significant log volume on systems with heavy rsync, backup, or database I/O. Monitor `/var/log/audit/audit.log` growth after deployment.
 
@@ -76,20 +64,16 @@ update-initramfs -u -k all   # or: dracut --regenerate-all --force
 
 ## Disclaimer
 
-> **This script is a compensating control, not a permanent fix.**
->
-> It reduces exploitability of CVE-2026-31431 but does not patch the underlying kernel vulnerability. Apply the official kernel patch as soon as it is available for your distribution.
->
-> This script is provided as-is. Security administrators are responsible for validating its effects in their specific environment before production deployment. The authors assume no liability for service disruption, data loss, or security incidents resulting from its use.
->
-> By using this script, you acknowledge that you have read and understood all the reminders, disclaimers, and considerations outlined in this document. The author takes no responsibility for any issues, damages, or problems — direct or indirect — that arise from using, deploying, or modifying this script. Use it at your own risk.
+This script is a compensating control, not a permanent fix. It reduces exploitability but does not patch the underlying kernel vulnerability — apply the official patch as soon as it is available for your distribution.
+
+This script is provided as-is. By using it, you acknowledge that you have read and understood all the considerations outlined above. The author takes no responsibility for any issues, damages, or problems — direct or indirect — that arise from using, deploying, or modifying this script. Use it at your own risk.
 
 ---
 
-## Recommendations for Security Admins
+## Recommendations
 
-- **Deploy in stages**: test host → staging → production
-- **Keep an audit trail**: log the deployment date and affected hosts
-- **Set a remediation deadline**: track when official kernel patches become available via your distro's security advisory feed ([Ubuntu USN](https://ubuntu.com/security/notices), [RHEL Errata](https://access.redhat.com/errata/), [Debian DSA](https://www.debian.org/security/))
-- **Monitor alerts**: check `/var/log/cve-2026-31431/` and syslog for `CVE-2026-31431 monitor` entries
-- **Remove this script's mitigations after patching**: the immutable flags and sysctl changes are not needed once the official patch is applied
+- Deploy in stages: test host → staging → production
+- Log the deployment date and affected hosts
+- Track when the official patch becomes available via your distro's security advisory feed ([Ubuntu USN](https://ubuntu.com/security/notices), [RHEL Errata](https://access.redhat.com/errata/), [Debian DSA](https://www.debian.org/security/))
+- Monitor `/var/log/cve-2026-31431/` and syslog for `CVE-2026-31431 monitor` entries
+- Remove these mitigations once the official patch is applied
