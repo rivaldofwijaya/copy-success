@@ -8,28 +8,28 @@ A compensating control script for **CVE-2026-31431**, a local privilege escalati
 
 | Mitigation | Effect |
 |---|---|
-| **AF_AEAD module blacklist** | Prevents the vulnerable socket family from loading (effective when built as a module) |
-| **`chattr +i` on SUID binaries** | Marks `/usr/bin/su` and other SUID binaries immutable at the VFS layer, blocking the splice-based overwrite regardless of kernel version |
-| **SUID baseline + integrity monitor** | SHA-256 baseline of all SUID/SGID binaries; cron-driven monitor alerts on tampering or missing files |
-| **`auditd` detection rules** | Logs `socket(AF_AEAD)`, `splice()` on SUID targets, SUID binary writes, and post-exploitation `execve` |
-| **Kernel hardening sysctls** | Disables unprivileged user namespaces, restricts BPF, tightens `dmesg`/kptr access |
-| **Initramfs rebuild** | Persists the module blacklist across reboots |
+| **AF_AEAD module blacklist** | Blocks the vulnerable kernel module from loading so the exploit cannot start |
+| **`chattr +i` on SUID binaries** | Write-protects `/usr/bin/su` and other privileged binaries at the OS level, blocking the file overwrite the exploit depends on |
+| **Integrity monitor** | Records checksums of all privileged system binaries and runs on a schedule to alert on any changes or missing files |
+| **`auditd` detection rules** | Logs suspicious activity: exploit-related socket calls, writes to privileged binaries, and execution of modified files |
+| **Kernel hardening** | Restricts kernel features commonly used to set up or escalate the exploit |
+| **Initramfs rebuild** | Ensures the module block stays active after a reboot |
 
 ---
 
 ## Key Considerations
 
-1. **Test on a non-production system first.** The script makes persistent changes including immutable file flags, sysctl settings, initramfs rebuilds, and audit rules.
+1. **Test on a non-production system first.** The script makes permanent changes to system files, kernel settings, boot configuration, and audit rules.
 
-2. **`chattr +i` blocks package manager updates.** After deployment, `apt`/`dnf`/`zypper` cannot update `su` or other immutable SUID binaries. Run `chattr -i /usr/bin/su` (and other flagged binaries) before applying OS updates, then re-run this script afterward.
+2. **Write-protected files cannot be updated by the package manager.** After deployment, `apt`/`dnf`/`zypper` cannot update `su` or other protected binaries. Run `chattr -i /usr/bin/su` (and other flagged binaries) before applying OS updates, then re-run this script afterward.
 
-3. **Initramfs rebuild is slow.** On systems with multiple installed kernels, `update-initramfs -u -k all` or `dracut --regenerate-all` can take 2–10 minutes. The script is not hung. It will complete.
+3. **The initramfs rebuild step is slow.** On systems with multiple installed kernels, `update-initramfs -u -k all` or `dracut --regenerate-all` can take 2-10 minutes. The script is not hung. It will complete.
 
-4. **Container hosts (Docker/Podman rootless):** The script detects running container services and conditionally skips `user.max_user_namespaces = 0`, but still applies `kernel.unprivileged_userns_clone = 0` unconditionally. Verify compatibility before deploying on container hosts. You may need to manually restore that sysctl afterward.
+4. **Container hosts (Docker/Podman rootless):** The script detects running container services and conditionally skips `user.max_user_namespaces = 0`, but still applies `kernel.unprivileged_userns_clone = 0` unconditionally. Verify compatibility before deploying on container hosts. You may need to manually restore that setting afterward.
 
-5. **High-throughput servers:** The `splice()` audit rule can generate significant log volume on systems with heavy rsync, backup, or database I/O. Monitor `/var/log/audit/audit.log` growth after deployment.
+5. **High-throughput servers:** The audit rule for `splice()` can generate a high volume of log entries on systems with heavy rsync, backup, or database activity. Monitor `/var/log/audit/audit.log` growth after deployment.
 
-6. **Module blacklist may be ineffective** if your kernel has `CONFIG_NET_AEAD=y` (built-in rather than loadable module). The `chattr +i` immutability control remains fully effective regardless and is the primary defensive layer.
+6. **The module block may not work on all systems** if your kernel has `CONFIG_NET_AEAD=y` (meaning the module is built into the kernel rather than loaded separately). The write-protection on privileged binaries remains fully effective regardless and is the primary defensive layer.
 
 ---
 
@@ -40,11 +40,11 @@ A compensating control script for **CVE-2026-31431**, a local privilege escalati
 sudo bash copy-success.sh
 ```
 
-The script is idempotent, safe to re-run after OS updates or manual rollback.
+Safe to re-run after OS updates or manual rollback.
 
 **To reverse all mitigations:**
 ```bash
-# Remove immutable flags
+# Remove write protection
 while IFS= read -r f; do chattr -i "$f"; done < /var/lib/cve-2026-31431/immutable-files.list
 
 # Remove configuration files
@@ -66,13 +66,13 @@ update-initramfs -u -k all   # or: dracut --regenerate-all --force
 
 This script is a compensating control, not a permanent fix. It reduces exploitability but does not patch the underlying kernel vulnerability. Apply the official patch as soon as it is available for your distribution.
 
-This script is provided as-is. By using it, you acknowledge that you have read and understood all the considerations outlined above. The author takes no responsibility for any issues, damages, or problems — direct or indirect — that arise from using, deploying, or modifying this script. Use it at your own risk.
+This script is provided as-is. By using it, you acknowledge that you have read and understood all the considerations outlined above. The author takes no responsibility for any issues, damages, or problems, direct or indirect, that arise from using, deploying, or modifying this script. Use it at your own risk.
 
 ---
 
 ## Recommendations
 
-- Deploy in stages: test host → staging → production
+- Deploy in stages: test host -> staging -> production
 - Log the deployment date and affected hosts
 - Track when the official patch becomes available via your distro's security advisory feed ([Ubuntu USN](https://ubuntu.com/security/notices), [RHEL Errata](https://access.redhat.com/errata/), [Debian DSA](https://www.debian.org/security/))
 - Monitor `/var/log/cve-2026-31431/` and syslog for `CVE-2026-31431 monitor` entries
