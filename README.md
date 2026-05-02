@@ -1,6 +1,6 @@
-# copy-success: CVE-2026-31431 Compensating Control
+# copy-success
 
-A compensating control script for **CVE-2026-31431**, a local privilege escalation vulnerability in the Linux kernel (`splice()` + AF_AEAD sockets, kernel ≥ 6.11). Intended for environments where applying the official kernel patch is not yet possible.
+copy-success is a compensating control script for **CVE-2026-31431**, a local privilege escalation vulnerability in the Linux kernel (`splice()` + AF_AEAD sockets, kernel ≥ 6.11). Intended for environments where applying the official kernel patch is not yet possible.
 
 ---
 
