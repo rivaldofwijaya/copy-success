@@ -81,6 +81,8 @@ update-initramfs -u -k all   # or: dracut --regenerate-all --force
 > It reduces exploitability of CVE-2026-31431 but does not patch the underlying kernel vulnerability. Apply the official kernel patch as soon as it is available for your distribution.
 >
 > This script is provided as-is. Security administrators are responsible for validating its effects in their specific environment before production deployment. The authors assume no liability for service disruption, data loss, or security incidents resulting from its use.
+>
+> By using this script, you acknowledge that you have read and understood all the reminders, disclaimers, and considerations outlined in this document. The author takes no responsibility for any issues, damages, or problems — direct or indirect — that arise from using, deploying, or modifying this script. Use it at your own risk.
 
 ---
 
